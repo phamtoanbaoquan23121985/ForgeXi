@@ -17,5 +17,20 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest
+      - name: Install package
+        run: |
+          set -o pipefail
+          python -m pip install -e ".[dev]" 2>&1 | tee pip-install.log
+      - name: Run tests
+        run: |
+          set -o pipefail
+          python -m pytest 2>&1 | tee pytest.log
+      - name: Upload verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-diagnostics
+          path: |
+            pip-install.log
+            pytest.log
+          if-no-files-found: ignore
