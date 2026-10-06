@@ -1,8 +1,6 @@
 """Evidence-grade hardening scorecard builder."""
-
 from __future__ import annotations
-import hashlib
-import json
+import hashlib,json
 
 
 def _gate(metrics):
@@ -14,16 +12,21 @@ def _gate(metrics):
     )
 
 
+def _clean_tests(tests):
+    return (
+        tests.get("passed",0)>0
+        and tests.get("failed",0)==0
+        and tests.get("skipped",0)==0
+        and tests.get("xfailed",0)==0
+        and tests.get("xpassed",0)==0
+        and tests.get("errors",0)==0
+    )
+
+
 def build_scorecard(*,source_sha,verifier,pytest_exit_code,tests,fault_metrics):
-    body={
-        "schema":"forgexi.hardening.v1",
-        "source_sha":source_sha,
-        "verifier":verifier,
-        "pytest_exit_code":pytest_exit_code,
-        "tests":tests,
-        "fault_metrics":fault_metrics,
-    }
-    body["decision"]="HARDENED" if pytest_exit_code==0 and tests.get("failed",0)==0 and _gate(fault_metrics) else "NOT_HARDENED"
+    body={"schema":"forgexi.hardening.v1","source_sha":source_sha,"verifier":verifier,
+          "pytest_exit_code":pytest_exit_code,"tests":tests,"fault_metrics":fault_metrics}
+    body["decision"]="HARDENED" if pytest_exit_code==0 and _clean_tests(tests) and _gate(fault_metrics) else "NOT_HARDENED"
     canonical=json.dumps(body,sort_keys=True,separators=(",",":")).encode()
     body["receipt_sha256"]=hashlib.sha256(canonical).hexdigest()
     return body
