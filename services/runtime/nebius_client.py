@@ -22,6 +22,18 @@ class ProviderError(RuntimeError):
 
 @dataclass
 class UrllibTransport:
+    def get_json(self, url, headers, timeout):
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                return _HttpResponse(response.status, json.loads(response.read()))
+        except urllib.error.HTTPError as exc:
+            try:
+                payload = json.loads(exc.read())
+            except Exception:
+                payload = {}
+            return _HttpResponse(exc.code, payload)
+
     def post_json(self, url, headers, payload, timeout):
         body = json.dumps(payload, separators=(",", ":")).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
