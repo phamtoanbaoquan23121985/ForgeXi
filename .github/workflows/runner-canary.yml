@@ -1,0 +1,23 @@
+name: runner-canary
+
+on:
+  pull_request:
+  push:
+    branches: ["feat/**"]
+
+permissions: {}
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: runner-started
+        shell: bash
+        run: |
+          set -eu
+          echo "FORGEXI_RUNNER_CANARY=started"
+          uname -a
+          command -v python3
+          python3 --version
+          echo "FORGEXI_RUNNER_CANARY=passed"
