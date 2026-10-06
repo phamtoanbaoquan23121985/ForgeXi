@@ -1,0 +1,11 @@
+# Retired diagnostic workflow. Kept for provenance.
+name: runner-canary-retired
+on:
+  workflow_dispatch:
+
+jobs:
+  provenance:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo retired

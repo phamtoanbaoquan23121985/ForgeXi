@@ -1,0 +1,1 @@
+"""ForgeXi WebMCP boundary."""
