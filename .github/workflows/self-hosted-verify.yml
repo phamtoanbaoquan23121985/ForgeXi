@@ -1,0 +1,35 @@
+name: self-hosted-verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  hardening:
+    runs-on: [self-hosted, forgexi-verifier]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify source identity
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Install
+        run: python3 -m pip install -e '.[dev]'
+      - name: Full hardening verification
+        id: verify
+        continue-on-error: true
+        run: python3 tools/verify_hardening.py --source-sha "$GITHUB_SHA" --verifier "github-self-hosted:forgexi-verifier"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: hardening-evidence
+          path: benchmarks/results/hardening_scorecard.json
+          if-no-files-found: error
+      - name: Enforce hardening decision
+        if: steps.verify.outcome != 'success'
+        run: exit 1
