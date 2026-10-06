@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,7 @@ class CommandPolicy:
     allowed_programs: set[str]
     timeout_seconds: float = 30.0
     max_output_bytes: int = 64 * 1024
+    safe_environment: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.timeout_seconds <= 0:
@@ -47,6 +48,15 @@ class RepoExecutor:
             raise PermissionError("working directory escapes workspace") from exc
         return target
 
+    def _environment(self) -> dict[str, str]:
+        env = {}
+        for key in ("PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SYSTEMROOT"):
+            value = os.environ.get(key)
+            if value is not None:
+                env[key] = value
+        env.update({str(k): str(v) for k, v in self.policy.safe_environment.items()})
+        return env
+
     def run(self, argv: Sequence[str], *, cwd=None) -> ExecutionResult:
         if not argv:
             raise ValueError("argv must be non-empty")
@@ -55,16 +65,7 @@ class RepoExecutor:
             raise PermissionError(f"program not allowed: {program}")
         target = self._cwd(cwd)
         try:
-            proc = subprocess.run(
-                list(argv),
-                cwd=target,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=self.policy.timeout_seconds,
-                check=False,
-                shell=False,
-            )
+            proc = subprocess.run(list(argv), cwd=target, env=self._environment(), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=self.policy.timeout_seconds, check=False, shell=False)
             out, out_cut = _bounded(proc.stdout, self.policy.max_output_bytes)
             err, err_cut = _bounded(proc.stderr, self.policy.max_output_bytes)
             return ExecutionResult(tuple(argv), proc.returncode, out, err, False, out_cut, err_cut)
