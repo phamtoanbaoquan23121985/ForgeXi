@@ -9,28 +9,30 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install --upgrade pip
-      - name: Install package
-        run: |
-          set -o pipefail
-          python -m pip install -e ".[dev]" 2>&1 | tee pip-install.log
-      - name: Run tests
-        run: |
-          set -o pipefail
-          python -m pytest 2>&1 | tee pytest.log
-      - name: Upload verification diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Compile source
+        run: python -m compileall -q src tests
+      - name: Install test runner
+        run: python -m pip install "pytest>=8.0"
+      - name: Run core tests without packaging dependency
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: verification-diagnostics
-          path: |
-            pip-install.log
-            pytest.log
-          if-no-files-found: ignore
+          python-version: "3.11"
+      - name: Build and install editable package
+        run: python -m pip install -e ".[dev]"
+      - name: Verify installed import
+        run: python -c "import forgexi; print(forgexi.__file__)"
