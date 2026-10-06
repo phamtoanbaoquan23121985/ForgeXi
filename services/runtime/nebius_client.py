@@ -9,6 +9,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Callable
 
+from .credentials import CredentialProvider, EnvironmentCredentialProvider
 from .protocol import DecisionRequest, DecisionResponse, TokenUsage
 
 
@@ -47,21 +48,31 @@ class _HttpResponse:
 class NebiusClient:
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         *,
+        credential_provider: CredentialProvider | None = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout_seconds: float = 60.0,
         max_retries: int = 2,
         transport=None,
         clock_ns: Callable[[], int] = time.monotonic_ns,
     ):
-        if not api_key:
-            raise ValueError("api_key must be non-empty")
+        if api_key and credential_provider is not None:
+            raise ValueError("provide api_key or credential_provider, not both")
+        if credential_provider is None:
+            if api_key:
+                class _StaticProvider:
+                    def get(self_nonlocal):
+                        from .credentials import BearerCredential
+                        return BearerCredential(api_key)
+                credential_provider = _StaticProvider()
+            else:
+                credential_provider = EnvironmentCredentialProvider("NEBIUS_API_KEY")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if max_retries < 0:
             raise ValueError("max_retries must be nonnegative")
-        self._api_key = api_key
+        self._credential_provider = credential_provider
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
         self._max_retries = max_retries
@@ -74,8 +85,9 @@ class NebiusClient:
             "messages": list(request.messages),
             "temperature": request.temperature,
         }
+        credential = self._credential_provider.get()
         headers = {
-            "Authorization": f"Bearer {self._api_key}",
+            "Authorization": f"Bearer {credential.value}",
             "Content-Type": "application/json",
         }
         start = self._clock_ns()
