@@ -1,23 +1,11 @@
-name: runner-canary
-
+# Retired diagnostic workflow. Kept for provenance.
+name: runner-canary-retired
 on:
-  pull_request:
-  push:
-    branches: ["feat/**"]
-
-permissions: {}
+  workflow_dispatch:
 
 jobs:
-  canary:
+  provenance:
+    if: false
     runs-on: ubuntu-latest
-    timeout-minutes: 2
     steps:
-      - name: runner-started
-        shell: bash
-        run: |
-          set -eu
-          echo "FORGEXI_RUNNER_CANARY=started"
-          uname -a
-          command -v python3
-          python3 --version
-          echo "FORGEXI_RUNNER_CANARY=passed"
+      - run: echo retired
